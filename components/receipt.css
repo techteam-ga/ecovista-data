@@ -1,0 +1,155 @@
+.receipt-page {
+  width: 700px;          /* Safe width for A4 */
+  padding: 32px;         /* Reduce padding */
+  box-sizing: border-box;
+  background: white;
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #111;
+  border: 3px solid #db071d;
+  box-shadow: 0 0 12px rgba(0,0,0,0.15);
+}
+.receipt-page {
+  overflow-x: hidden;
+}
+
+/* HEADER */
+.receipt-header {
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid #db071d;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.receipt-logo img {
+  max-width: 80px;
+  height: auto;
+  margin-right: 20px;
+}
+
+.receipt-company {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* TITLE */
+.receipt-title-box {
+  text-align: center;
+  margin: 20px 0;
+  background: #db071d;
+  color: white;
+  padding: 8px 0;
+  letter-spacing: 4px;
+  font-size: 18px;
+}
+
+/* META */
+.receipt-meta {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+  font-size: 13px;
+  border-bottom: 1px dashed #999;
+  padding-bottom: 10px;
+}
+
+/* TEXT */
+.receipt-text {
+  font-size: 14px;
+  margin: 12px 0;
+}
+
+/* DETAILS TABLE STYLE */
+.receipt-details-box {
+  border: 1px solid #ccc;
+  margin-top: 15px;
+}
+
+.receipt-details-box div {
+   display: grid;
+  grid-template-columns: 160px 1fr;
+  border-bottom: 1px solid #ddd;
+}
+.receipt-details-box span {
+  word-break: break-word;
+}
+
+.receipt-details-box div span {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.receipt-details-box div span:first-child {
+  background: #f8f8f8;
+  font-weight: 600;
+}
+
+/* NOTE */
+.receipt-note-box {
+  margin-top: 25px;
+  padding: 12px;
+  background: #fff6f6;
+  border-left: 4px solid #db071d;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* FOOTER */
+.receipt-footer {
+  margin-top: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.receipt-signature p {
+  border-top: 1px solid #000;
+  width: 180px;
+  text-align: center;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.receipt-signature span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.receipt-disclaimer {
+  font-size: 11px;
+  color: #555;
+  text-align: right;
+}
+.receipt-property-box{
+    margin-top:25px;
+    border-top:3px solid #d6001c;
+    padding-top:12px;
+}
+
+.receipt-property-box h3{
+    color:#d6001c;
+    font-size:22px;
+    margin-bottom:15px;
+    font-weight:700;
+}
+
+.receipt-property-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px 40px;
+}
+
+.receipt-property-grid div{
+    display:flex;
+    justify-content:space-between;
+    border-bottom:1px dotted #999;
+    padding-bottom:6px;
+}
+
+.receipt-property-grid span:first-child{
+    font-weight:600;
+}
+
+.receipt-property-grid span:last-child{
+    font-weight:500;
+}
