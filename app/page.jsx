@@ -1,11 +1,57 @@
 "use client";
 
-import { cloneElement, isValidElement, useRef, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import { toWords } from "number-to-words";
 import MoneyReceiptTemplate from "@/components/MoneyReceiptTemplate";
 
 const paymentModes = ["Cash", "Cheque", "NEFT/RTGS", "UPI", "Other"];
+const paymentReferenceRules = {
+  Cash: {
+    maxLength: 30,
+    allowedChars: /[^A-Z0-9/-]/g,
+    pattern: /^[A-Z0-9][A-Z0-9/-]{0,29}$/,
+    error: "Enter a cash receipt/reference number using up to 30 letters, numbers, /, or -.",
+  },
+  Cheque: {
+    maxLength: 6,
+    allowedChars: /\D/g,
+    pattern: /^\d{6}$/,
+    error: "Cheque number must contain exactly 6 digits.",
+  },
+  "NEFT/RTGS": {
+    maxLength: 22,
+    allowedChars: /[^A-Z0-9]/g,
+    pattern: /^[A-Z0-9]{12,22}$/,
+    error: "Enter a 12–22 character NEFT/RTGS UTR using letters and numbers only.",
+  },
+  UPI: {
+    maxLength: 35,
+    allowedChars: /\D/g,
+    pattern: /^\d{12,35}$/,
+    error: "Enter a 12–35 digit UPI transaction reference/UTR.",
+  },
+  Other: {
+    maxLength: 100,
+    allowedChars: /[^\p{L}\p{M}\d ./_-]/gu,
+    pattern: /^[\p{L}\p{M}\d][\p{L}\p{M}\d ./_-]{2,99}$/u,
+    error: "Enter a reference with 3–100 letters, numbers, spaces, or ./_- characters.",
+  },
+};
+
+function sanitizePaymentReference(paymentMethod, rawValue) {
+  const rule = paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
+  const value = String(rawValue ?? "").toUpperCase().replace(rule.allowedChars, "").slice(0, rule.maxLength);
+  if (paymentMethod === "Cash") return value.replace(/^[^A-Z0-9]+/, "");
+  return paymentMethod === "Other" ? value.replace(/^[^\p{L}\p{M}\d]+/u, "") : value;
+}
+
 const emptyForm = {
   customer: {
     fullName: "",
@@ -49,13 +95,30 @@ const requiredFields = new Set([
 ]);
 const validationPaths = [
   ...[
-    "fullName", "fatherHusbandName", "mobileNumber", "email", "dateOfBirth", "pan", "aadhar", "address",
+    "fullName",
+    "fatherHusbandName",
+    "mobileNumber",
+    "email",
+    "dateOfBirth",
+    "pan",
+    "aadhar",
+    "address",
   ].map((field) => `customer.${field}`),
-  ...["unitPlotNumber", "area", "facing", "plotSize"].map((field) => `property.${field}`),
-  ...["bookingAmountPaid", "totalPropertyValue", "paymentMethod", "transactionId", "paymentDate", "bankBranch", "paymentPlan"].map((field) => `payment.${field}`),
+  ...["unitPlotNumber", "area", "facing", "plotSize"].map(
+    (field) => `property.${field}`,
+  ),
+  ...[
+    "bookingAmountPaid",
+    "totalPropertyValue",
+    "paymentMethod",
+    "transactionId",
+    "paymentDate",
+    "bankBranch",
+    "paymentPlan",
+  ].map((field) => `payment.${field}`),
 ];
 
-function getFieldError(path, rawValue) {
+function getFieldError(path, rawValue, paymentMethod) {
   const value = String(rawValue ?? "").trim();
   if (!value) return requiredFields.has(path) ? "This field is required." : "";
 
@@ -66,17 +129,29 @@ function getFieldError(path, rawValue) {
         ? ""
         : "Enter a name using letters, spaces, apostrophes, or hyphens.";
     case "customer.mobileNumber":
-      return /^[6-9]\d{9}$/.test(value) ? "" : "Enter a valid 10-digit Indian mobile number.";
+      return /^[6-9]\d{9}$/.test(value)
+        ? ""
+        : "Enter a valid 10-digit Indian mobile number.";
     case "customer.email":
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "" : "Enter a valid email address.";
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+        ? ""
+        : "Enter a valid email address.";
     case "customer.dateOfBirth":
-      return value <= new Date().toISOString().slice(0, 10) ? "" : "Date of birth cannot be in the future.";
+      return value <= new Date().toISOString().slice(0, 10)
+        ? ""
+        : "Date of birth cannot be in the future.";
     case "customer.pan":
-      return /^[A-Z]{5}\d{4}[A-Z]$/.test(value) ? "" : "Enter a valid PAN (for example, ABCDE1234F).";
+      return /^[A-Z]{5}\d{4}[A-Z]$/.test(value)
+        ? ""
+        : "Enter a valid PAN (for example, ABCDE1234F).";
     case "customer.aadhar":
-      return /^\d{12}$/.test(value) ? "" : "Aadhaar number must contain exactly 12 digits.";
+      return /^\d{12}$/.test(value)
+        ? ""
+        : "Aadhaar number must contain exactly 12 digits.";
     case "customer.address":
-      return value.length >= 6 ? "" : "Enter an address with at least 6 characters.";
+      return value.length >= 6
+        ? ""
+        : "Enter an address with at least 6 characters.";
     case "property.unitPlotNumber":
       return /^[\p{L}\p{M}\d][\p{L}\p{M}\d /.-]{0,24}$/u.test(value)
         ? ""
@@ -96,13 +171,17 @@ function getFieldError(path, rawValue) {
         ? ""
         : "Enter a valid facing direction.";
     case "payment.paymentMethod":
-      return paymentModes.includes(value) ? "" : "Select a listed payment method.";
-    case "payment.transactionId":
-      return /^[\p{L}\p{M}\d][\p{L}\p{M}\d ./_-]{2,99}$/u.test(value)
+      return paymentModes.includes(value)
         ? ""
-        : "Enter a reference with 3–100 letters, numbers, spaces, or ./_- characters.";
+        : "Select a listed payment method.";
+    case "payment.transactionId":
+      {
+        const rule = paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
+        return rule.pattern.test(value) ? "" : rule.error;
+      }
     case "payment.paymentDate":
-      return /^\d{4}-\d{2}-\d{2}$/.test(value) && value <= new Date().toISOString().slice(0, 10)
+      return /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        value <= new Date().toISOString().slice(0, 10)
         ? ""
         : "Choose a valid date that is not in the future.";
     case "payment.bankBranch":
@@ -110,7 +189,8 @@ function getFieldError(path, rawValue) {
         ? ""
         : "Enter a valid bank and branch name.";
     case "payment.paymentPlan":
-      return value === "Other" || (value.startsWith("Other:") && value.slice(6).trim().length < 3)
+      return value === "Other" ||
+        (value.startsWith("Other:") && value.slice(6).trim().length < 3)
         ? "Please specify the other payment plan (at least 3 characters)."
         : "";
     default:
@@ -145,7 +225,14 @@ function Section({ number, title, children, className = "" }) {
   );
 }
 
-function Field({ label, children, className = "", path, error, validateField }) {
+function Field({
+  label,
+  children,
+  className = "",
+  path,
+  error,
+  validateField,
+}) {
   const control = isValidElement(children)
     ? cloneElement(children, {
         "aria-invalid": Boolean(error),
@@ -181,8 +268,18 @@ export default function BookingForm() {
   const [receiptData, setReceiptData] = useState(null);
   const [bookingNumber, setBookingNumber] = useState("");
   const receiptRef = useRef(null);
+  const makeBookingNumber = () => {
+    const randomBytes = new Uint8Array(4);
+    globalThis.crypto.getRandomValues(randomBytes);
+    const suffix = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+    return `EVB-${suffix}`;
+  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBookingNumber(makeBookingNumber()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   const validateField = (path, value) => {
-    const error = getFieldError(path, value);
+    const error = getFieldError(path, value, form.payment.paymentMethod);
     setFieldErrors((current) => {
       if (current[path] === error) return current;
       const next = { ...current };
@@ -198,12 +295,31 @@ export default function BookingForm() {
     validateField,
   });
   const update = (section, field, value) => {
-    if (bookingNumber) setBookingNumber("");
+    const isPaymentMethodChange = section === "payment" && field === "paymentMethod";
+    const nextValue = section === "payment" && field === "transactionId"
+      ? sanitizePaymentReference(form.payment.paymentMethod, value)
+      : value;
+    const cleanedTransactionId = isPaymentMethodChange
+      ? sanitizePaymentReference(value, form.payment.transactionId)
+      : null;
     setForm((current) => ({
       ...current,
-      [section]: { ...current[section], [field]: value },
+      [section]: {
+        ...current[section],
+        [field]: nextValue,
+        ...(isPaymentMethodChange ? { transactionId: cleanedTransactionId } : {}),
+      },
     }));
-    validateField(`${section}.${field}`, value);
+    if (isPaymentMethodChange) {
+      const transactionError = getFieldError("payment.transactionId", cleanedTransactionId, value);
+      setFieldErrors((current) => {
+        const next = { ...current };
+        if (transactionError) next["payment.transactionId"] = transactionError;
+        else delete next["payment.transactionId"];
+        return next;
+      });
+    }
+    validateField(`${section}.${field}`, nextValue);
   };
   const methodLabel = {
     Cash: "Cash Receipt / Reference No.",
@@ -222,17 +338,23 @@ export default function BookingForm() {
       validationPaths
         .map((path) => {
           const [section, field] = path.split(".");
-          return [path, getFieldError(path, form[section][field])];
+          return [path, getFieldError(path, form[section][field], form.payment.paymentMethod)];
         })
         .filter(([, error]) => error),
     );
     setFieldErrors(errors);
-    if (!termsAccepted) setTermsError("Please confirm the booking declaration.");
+    if (!termsAccepted)
+      setTermsError("Please confirm the booking declaration.");
     if (Object.keys(errors).length || !termsAccepted) return;
+    if (!bookingNumber) {
+      setMessage("A booking form number is being generated. Please try again in a moment.");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     try {
       const payload = {
+        bookingNo: bookingNumber,
         customer: form.customer,
         nominee: {},
         property: {
@@ -258,12 +380,13 @@ export default function BookingForm() {
         body: JSON.stringify(payload),
       });
       const booking = await response.json();
+      if (response.status === 409) setBookingNumber(makeBookingNumber());
       if (!response.ok)
         throw new Error(booking.error || "Unable to save booking details.");
-      setBookingNumber(booking.bookingNo || "");
+      const savedBookingNumber = booking.bookingNo || bookingNumber;
       const downloadData = {
         ...payload,
-        bookingNo: booking.bookingNo || booking._id,
+        bookingNo: savedBookingNumber || booking._id,
         receiptNo:
           booking.receiptNo ||
           `BKR-${String(booking._id).slice(-8).toUpperCase()}`,
@@ -280,6 +403,7 @@ export default function BookingForm() {
         "Your booking details were submitted. Your acknowledgment receipt is downloading now; payment remains subject to manual verification.",
       );
       setForm(emptyForm);
+      setBookingNumber(makeBookingNumber());
       setFieldErrors({});
       setTermsAccepted(false);
       setTermsError("");
@@ -332,7 +456,7 @@ export default function BookingForm() {
           </p>
           <div className="form-meta">
             <span>
-              Booking Form No.: <b>{bookingNumber || ""}</b>
+              Booking Form No.: <b>{bookingNumber || "Generating…"}</b>
             </span>
             <span>
               Date: <b>{new Date().toLocaleDateString("en-IN")}</b>
@@ -366,7 +490,10 @@ export default function BookingForm() {
                   }
                 />
               </Field>
-              <Field label="Date of Birth" {...fieldProps("customer.dateOfBirth")}>
+              <Field
+                label="Date of Birth"
+                {...fieldProps("customer.dateOfBirth")}
+              >
                 <input
                   className={inputClass}
                   type="date"
@@ -377,7 +504,10 @@ export default function BookingForm() {
                   }
                 />
               </Field>
-              <Field label="Father’s / Spouse’s Name" {...fieldProps("customer.fatherHusbandName")}>
+              <Field
+                label="Father’s / Spouse’s Name"
+                {...fieldProps("customer.fatherHusbandName")}
+              >
                 <input
                   className={inputClass}
                   value={form.customer.fatherHusbandName}
@@ -398,7 +528,10 @@ export default function BookingForm() {
                   }
                 />
               </Field>
-              <Field label="Mobile No. *" {...fieldProps("customer.mobileNumber")}>
+              <Field
+                label="Mobile No. *"
+                {...fieldProps("customer.mobileNumber")}
+              >
                 <input
                   className={inputClass}
                   type="tel"
@@ -407,11 +540,7 @@ export default function BookingForm() {
                   required
                   value={form.customer.mobileNumber}
                   onChange={(e) =>
-                    update(
-                      "customer",
-                      "mobileNumber",
-                      e.target.value,
-                    )
+                    update("customer", "mobileNumber", e.target.value)
                   }
                 />
               </Field>
@@ -421,9 +550,7 @@ export default function BookingForm() {
                   inputMode="numeric"
                   maxLength={12}
                   value={form.customer.aadhar}
-                  onChange={(e) =>
-                    update("customer", "aadhar", e.target.value)
-                  }
+                  onChange={(e) => update("customer", "aadhar", e.target.value)}
                 />
               </Field>
               <Field label="Email ID" {...fieldProps("customer.email")}>
@@ -434,7 +561,11 @@ export default function BookingForm() {
                   onChange={(e) => update("customer", "email", e.target.value)}
                 />
               </Field>
-              <Field label="Address *" className="full-width" {...fieldProps("customer.address")}>
+              <Field
+                label="Address *"
+                className="full-width"
+                {...fieldProps("customer.address")}
+              >
                 <input
                   className={inputClass}
                   required
@@ -459,7 +590,10 @@ export default function BookingForm() {
                   value="Eco Vista Township, Dhanbad"
                 />
               </Field>
-              <Field label="Plot / Unit No. *" {...fieldProps("property.unitPlotNumber")}>
+              <Field
+                label="Plot / Unit No. *"
+                {...fieldProps("property.unitPlotNumber")}
+              >
                 <input
                   className={inputClass}
                   placeholder="Enter plot or unit number"
@@ -478,7 +612,10 @@ export default function BookingForm() {
                   onChange={(e) => update("property", "facing", e.target.value)}
                 />
               </Field>
-              <Field label="Plot Area (Sq. Ft.) *" {...fieldProps("property.area")}>
+              <Field
+                label="Plot Area (Sq. Ft.) *"
+                {...fieldProps("property.area")}
+              >
                 <input
                   className={inputClass}
                   type="number"
@@ -490,7 +627,10 @@ export default function BookingForm() {
                   onChange={(e) => update("property", "area", e.target.value)}
                 />
               </Field>
-              <Field label="Total Price (₹)" {...fieldProps("payment.totalPropertyValue")}>
+              <Field
+                label="Total Price (₹)"
+                {...fieldProps("payment.totalPropertyValue")}
+              >
                 <input
                   className={inputClass}
                   type="number"
@@ -508,19 +648,27 @@ export default function BookingForm() {
                 <label className="simplex-choice">
                   <input
                     type="checkbox"
-                    checked={form.property.propertyType === "Simplex Private House (G+1)"}
+                    checked={
+                      form.property.propertyType ===
+                      "Simplex Private House (G+1)"
+                    }
                     onChange={(e) =>
                       update(
                         "property",
                         "propertyType",
-                        e.target.checked ? "Simplex Private House (G+1)" : "Residential Plot",
+                        e.target.checked
+                          ? "Simplex Private House (G+1)"
+                          : "Residential Plot",
                       )
                     }
                   />
                   G+1 Simplex
                 </label>
               </div>
-              <Field label="Built-up Area (Sq. Ft.)" {...fieldProps("property.plotSize")}>
+              <Field
+                label="Built-up Area (Sq. Ft.)"
+                {...fieldProps("property.plotSize")}
+              >
                 <input
                   className={inputClass}
                   type="number"
@@ -538,7 +686,10 @@ export default function BookingForm() {
           <div className="payment-grid">
             <Section number="3" title="Booking Payment Details">
               <div className="booking-grid single-grid">
-                <Field label="Booking Amount (₹) *" {...fieldProps("payment.bookingAmountPaid")}>
+                <Field
+                  label="Booking Amount (₹) *"
+                  {...fieldProps("payment.bookingAmountPaid")}
+                >
                   <input
                     className={inputClass}
                     type="number"
@@ -558,7 +709,10 @@ export default function BookingForm() {
                     value={amountInWords}
                   />
                 </Field>
-                <Field label="Payment Mode *" {...fieldProps("payment.paymentMethod")}>
+                <Field
+                  label="Payment Mode *"
+                  {...fieldProps("payment.paymentMethod")}
+                >
                   <select
                     className={inputClass}
                     value={form.payment.paymentMethod}
@@ -571,17 +725,33 @@ export default function BookingForm() {
                     ))}
                   </select>
                 </Field>
-                <Field label={`${methodLabel} *`} {...fieldProps("payment.transactionId")}>
+                <Field
+                  label={`${methodLabel} *`}
+                  {...fieldProps("payment.transactionId")}
+                >
                   <input
                     className={inputClass}
                     required
+                    maxLength={paymentReferenceRules[form.payment.paymentMethod].maxLength}
+                    inputMode={["Cheque", "UPI"].includes(form.payment.paymentMethod) ? "numeric" : "text"}
+                    autoCapitalize="characters"
+                    placeholder={{
+                      Cash: "Cash receipt/reference number",
+                      Cheque: "6 digit cheque number",
+                      "NEFT/RTGS": "Bank UTR (12–22 characters)",
+                      UPI: "UPI transaction ID / UTR",
+                      Other: "Transaction/reference number",
+                    }[form.payment.paymentMethod]}
                     value={form.payment.transactionId}
                     onChange={(e) =>
                       update("payment", "transactionId", e.target.value)
                     }
                   />
                 </Field>
-                <Field label="Bank & Branch (if any)" {...fieldProps("payment.bankBranch")}>
+                <Field
+                  label="Bank & Branch (if any)"
+                  {...fieldProps("payment.bankBranch")}
+                >
                   <input
                     className={inputClass}
                     value={form.payment.bankBranch}
@@ -590,11 +760,14 @@ export default function BookingForm() {
                     }
                   />
                 </Field>
-                <Field label="Transaction Date *" {...fieldProps("payment.paymentDate")}>
+                <Field
+                  label="Transaction Date *"
+                  {...fieldProps("payment.paymentDate")}
+                >
                   <input
                     className={inputClass}
                     type="date"
-                  max={new Date().toISOString().slice(0, 10)}
+                    max={new Date().toISOString().slice(0, 10)}
                     required
                     value={form.payment.paymentDate}
                     onChange={(e) =>
@@ -637,7 +810,9 @@ export default function BookingForm() {
                               ? form.payment.paymentPlan.slice(6).trim()
                               : ""
                           }
-                          aria-invalid={Boolean(fieldErrors["payment.paymentPlan"])}
+                          aria-invalid={Boolean(
+                            fieldErrors["payment.paymentPlan"],
+                          )}
                           aria-describedby={
                             fieldErrors["payment.paymentPlan"]
                               ? "payment.paymentPlan-error"
@@ -694,7 +869,11 @@ export default function BookingForm() {
                 aria-describedby={termsError ? "terms-error" : undefined}
                 onChange={(e) => {
                   setTermsAccepted(e.target.checked);
-                  setTermsError(e.target.checked ? "" : "Please confirm the booking declaration.");
+                  setTermsError(
+                    e.target.checked
+                      ? ""
+                      : "Please confirm the booking declaration.",
+                  );
                 }}
               />
               I confirm that the information provided is accurate and agree to
@@ -721,21 +900,37 @@ export default function BookingForm() {
           <button className="submit-booking" disabled={submitting}>
             {submitting ? "SUBMITTING…" : "SUBMIT BOOKING & DOWNLOAD RECEIPT"}
           </button>
-            {showConfetti && (
-              <div className="success-confetti" aria-label="Booking submitted successfully">
-                {["#e0b42f", "#0d3424", "#e77d45", "#6d9b75", "#e0b42f", "#0d3424", "#e77d45", "#6d9b75", "#e0b42f", "#0d3424", "#e77d45", "#6d9b75"].map((color, index) => (
-                  <i
-                    key={`${color}-${index}`}
-                    style={{
-                      "--confetti-delay": `${index * 18}ms`,
-                      "--confetti-color": color,
-                      "--confetti-x": `${(index - 5.5) * 13}px`,
-                      "--confetti-rotation": `${index * 83}deg`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+          {showConfetti && (
+            <div
+              className="success-confetti"
+              aria-label="Booking submitted successfully"
+            >
+              {[
+                "#e0b42f",
+                "#0d3424",
+                "#e77d45",
+                "#6d9b75",
+                "#e0b42f",
+                "#0d3424",
+                "#e77d45",
+                "#6d9b75",
+                "#e0b42f",
+                "#0d3424",
+                "#e77d45",
+                "#6d9b75",
+              ].map((color, index) => (
+                <i
+                  key={`${color}-${index}`}
+                  style={{
+                    "--confetti-delay": `${index * 18}ms`,
+                    "--confetti-color": color,
+                    "--confetti-x": `${(index - 5.5) * 13}px`,
+                    "--confetti-rotation": `${index * 83}deg`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </form>
       </article>
       <div className="receipt-download-stage" aria-hidden="true">
