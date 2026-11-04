@@ -1,126 +1,36 @@
+import { forwardRef } from "react";
+import Image from "next/image";
 import "./receipt.css";
 
-export default function MoneyReceiptTemplate({ data }) {
-  return (
-    <div id="receipt" className="receipt-page">
-      {/* HEADER */}
-      <div className="receipt-header">
-        <div className="receipt-logo">
-          <img src="/logo.jpeg" alt="Company Logo" />
-        </div>
-        <div className="receipt-company">
-          <div className="receipt-company">
-            <p>101, 1st Floor, Anantham Building,</p>
-
-            <p>Surendra Singh Compound, Kokar Chowk,</p>
-
-            <p>Kokar, Ranchi - 834001</p>
-
-            {/* <p>Dooravani Nagar, Bengaluru, Karnataka - 560016</p> */}
-          </div>
-        </div>
-      </div>
-
-      <div className="receipt-title-box">
-        <h1>PAYMENT RECEIPT</h1>
-      </div>
-
-      {/* META */}
-      <div className="receipt-meta">
-        <span>
-          <b>Date:</b> {data.date}
-        </span>
-        <span>
-          <b>Receipt No:</b> {data.receiptNo}
-        </span>
-      </div>
-
-      {/* BODY */}
-      <p className="receipt-text">
-        Received with thanks from <b>{data.name}</b>
-      </p>
-
-      <p className="receipt-text">
-        a sum of <b>₹ {data.amount}</b> (Rupees {data.amountWords} only) towards
-        the booking amount received for the property mentioned below:
-      </p>
-
-      {/* DETAILS */}
-      <div className="receipt-details-box">
-        {/* <div><span>Project Name</span><span>{data.projectName}</span></div> */}
-        {/* <div><span>Property Type</span><span>{data.propertyType}</span></div> */}
-        {/* <div><span>Location</span><span>{data.location}</span></div> */}
-        {/* <div>
-          <span>Area</span>
-          <span>{data.area}</span>
-        </div> */}
-        <div>
-          <span>Transaction No</span>
-          <span>{data.transactionId}</span>
-        </div>
-        <div>
-          <span>Payment Mode</span>
-          <span>{data.paymentMode}</span>
-        </div>
-        <div>
-          <span>Payment Date</span>
-          <span>{data.paymentDate}</span>
-        </div>
-      </div>
-
-      <div className="receipt-property-box">
-        <h3>Property Details</h3>
-
-        <div className="receipt-property-grid">
-          <div>
-            <span>Project</span>
-            <span>{data.projectName}</span>
-          </div>
-
-          <div>
-            <span>Booking Plot Size</span>
-            <span>{data.plotSize}</span>
-          </div>
-
-          <div>
-            <span>Plot No.</span>
-            <span>{data.plotNo}</span>
-          </div>
-
-          <div>
-            <span>Block</span>
-            <span>{data.block}</span>
-          </div>
-
-          <div>
-            <span>Facing</span>
-            <span>{data.facing}</span>
-          </div>
-
-          <div>
-            <span>Category</span>
-            <span>{data.propertyType}</span>
-          </div>
-        </div>
-      </div>
-      {/* NOTE */}
-      <div className="receipt-note-box">
-        <p>
-          This receipt is issued only as an acknowledgment of the Advance
-          Booking Amount received. It does not constitute confirmation of plot
-          allotment or ownership. Plot booking shall be confirmed only after
-          completion of the prescribed booking formalities and issuance of the
-          official Plot Allotment Letter by Eco Vista Township. Company Terms &
-          Conditions shall apply.
-        </p>
-      </div>
-
-      {/* FOOTER */}
-      <div className="receipt-footer">
-        <p className="receipt-disclaimer">
-          This is a computer-generated receipt; hence, no signature is required.
-        </p>
-      </div>
+const MoneyReceiptTemplate = forwardRef(function MoneyReceiptTemplate({ data }, ref) {
+  const customer = data.customer || {};
+  const property = data.property || {};
+  const payment = data.payment || {};
+  const date = new Date(data.createdAt || Date.now()).toLocaleDateString("en-IN");
+  return <div ref={ref} className="receipt-page">
+    <div className="receipt-corner receipt-corner-left"/><div className="receipt-corner receipt-corner-right"/>
+    <header className="receipt-header">
+      <div className="receipt-brand"><Image src="/logo.jpg" alt="Eco Vista Township" width={250} height={84} priority/></div>
+      <div className="receipt-heading"><h1>BOOKING AMOUNT <em>RECEIPT</em></h1><p>I N V E S T　 |　 B U I L D　 |　 B E L O N G</p></div>
+      <p className="receipt-date"><b>Date:</b> {date}</p>
+    </header>
+    <div className="receipt-number"><span>Receipt No.</span><b>{data.receiptNo}</b></div>
+    <div className="receipt-rows">
+      <div><span>Received with Thanks from</span><b>{customer.fullName}</b></div>
+      <div><span>Contact No.</span><b>{customer.mobileNumber}</b></div>
+      <div><span>Amount (₹)</span><b>₹ {Number(payment.bookingAmountPaid || 0).toLocaleString("en-IN")}</b></div>
+      <div><span>Amount in Words</span><b>{data.amountWords || "As stated above"} Rupees Only</b></div>
+      <div><span>Payment Mode</span><b>{payment.paymentMethod}</b></div>
+      <div><span>Cheque / Transaction No.</span><b>{payment.transactionId}</b><i>Dated: {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("en-IN") : date}</i></div>
+      <div><span>On Account of</span><b>Booking amount – {payment.paymentPlan}</b></div>
+      <div><span>Project</span><b>Eco Vista Township, Dhanbad</b></div>
+      <div><span>Plot / Unit No.</span><b>{property.unitPlotNumber}</b></div>
+      <div><span>Property Type / Area</span><b>{property.propertyType} · {property.area} Sq. Ft.</b></div>
+      <div><span>Remarks</span><b>Payment reference submitted for verification</b></div>
     </div>
-  );
-}
+    <div className="receipt-status"><strong>PAYMENT STATUS: PENDING MANUAL VERIFICATION</strong><span>This receipt acknowledges the details submitted. Payment is confirmed only after verification by Eco Vista Township.</span></div>
+    <footer className="receipt-footer"><span>🤝　Thank you for your valuable trust in Eco Vista.</span><small>Computer generated receipt</small></footer>
+  </div>;
+});
+
+export default MoneyReceiptTemplate;

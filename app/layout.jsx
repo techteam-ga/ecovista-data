@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "EcoVista Customer Registration ",
-  description: "Register as an associate to access exclusive benefits and opportunities. Join our network of professionals and unlock a world of possibilities. Sign up today to become an associate and start enjoying the advantages of being part of our community.",
+  title: "Eco Vista Township | Plot Booking Form",
+  description: "Complete the Eco Vista Township plot or simplex booking form and download your payment acknowledgment receipt.",
 };
 
 export default function RootLayout({ children }) {
