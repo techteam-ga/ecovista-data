@@ -3,6 +3,8 @@ import { connectDB } from "@/lib/mongodb";
 import Booking from "@/models/Booking";
 import { hasAdminSession } from "@/lib/admin-auth";
 
+const VALID_REFERRAL_CODE = "ECO-VISTA-2026";
+
 function validPaymentReference(method, rawValue) {
   const value = String(rawValue ?? "").trim();
   switch (method) {
@@ -18,10 +20,17 @@ function validPaymentReference(method, rawValue) {
 export async function POST(req) {
   try {
     const body = await req.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid booking details." }, { status: 400 });
+    }
+    if (String(body.referralCode ?? "").trim().toUpperCase() !== VALID_REFERRAL_CODE) {
+      return NextResponse.json({ error: "Referral code is incorrect." }, { status: 403 });
+    }
     if (!body.payment || !validPaymentReference(body.payment.paymentMethod, body.payment.transactionId)) {
       return NextResponse.json({ error: "Enter a valid transaction/reference number for the selected payment method." }, { status: 400 });
     }
 
+    delete body.referralCode;
     body.payment = { ...body.payment, paymentStatus: "pending verification" };
     const booking = new Booking(body);
     const requestedBookingNo = typeof body.bookingNo === "string" && /^EVB-[A-F0-9]{8}$/.test(body.bookingNo)

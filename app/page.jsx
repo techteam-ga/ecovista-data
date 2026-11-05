@@ -17,7 +17,8 @@ const paymentReferenceRules = {
     maxLength: 30,
     allowedChars: /[^A-Z0-9/-]/g,
     pattern: /^[A-Z0-9][A-Z0-9/-]{0,29}$/,
-    error: "Enter a cash receipt/reference number using up to 30 letters, numbers, /, or -.",
+    error:
+      "Enter a cash receipt/reference number using up to 30 letters, numbers, /, or -.",
   },
   Cheque: {
     maxLength: 6,
@@ -29,7 +30,8 @@ const paymentReferenceRules = {
     maxLength: 22,
     allowedChars: /[^A-Z0-9]/g,
     pattern: /^[A-Z0-9]{12,22}$/,
-    error: "Enter a 12–22 character NEFT/RTGS UTR using letters and numbers only.",
+    error:
+      "Enter a 12–22 character NEFT/RTGS UTR using letters and numbers only.",
   },
   UPI: {
     maxLength: 35,
@@ -41,15 +43,22 @@ const paymentReferenceRules = {
     maxLength: 100,
     allowedChars: /[^\p{L}\p{M}\d ./_-]/gu,
     pattern: /^[\p{L}\p{M}\d][\p{L}\p{M}\d ./_-]{2,99}$/u,
-    error: "Enter a reference with 3–100 letters, numbers, spaces, or ./_- characters.",
+    error:
+      "Enter a reference with 3–100 letters, numbers, spaces, or ./_- characters.",
   },
 };
 
 function sanitizePaymentReference(paymentMethod, rawValue) {
-  const rule = paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
-  const value = String(rawValue ?? "").toUpperCase().replace(rule.allowedChars, "").slice(0, rule.maxLength);
+  const rule =
+    paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
+  const value = String(rawValue ?? "")
+    .toUpperCase()
+    .replace(rule.allowedChars, "")
+    .slice(0, rule.maxLength);
   if (paymentMethod === "Cash") return value.replace(/^[^A-Z0-9]+/, "");
-  return paymentMethod === "Other" ? value.replace(/^[^\p{L}\p{M}\d]+/u, "") : value;
+  return paymentMethod === "Other"
+    ? value.replace(/^[^\p{L}\p{M}\d]+/u, "")
+    : value;
 }
 
 const emptyForm = {
@@ -174,11 +183,11 @@ function getFieldError(path, rawValue, paymentMethod) {
       return paymentModes.includes(value)
         ? ""
         : "Select a listed payment method.";
-    case "payment.transactionId":
-      {
-        const rule = paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
-        return rule.pattern.test(value) ? "" : rule.error;
-      }
+    case "payment.transactionId": {
+      const rule =
+        paymentReferenceRules[paymentMethod] || paymentReferenceRules.Other;
+      return rule.pattern.test(value) ? "" : rule.error;
+    }
     case "payment.paymentDate":
       return /^\d{4}-\d{2}-\d{2}$/.test(value) &&
         value <= new Date().toISOString().slice(0, 10)
@@ -262,6 +271,8 @@ export default function BookingForm() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [referralError, setReferralError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
@@ -271,11 +282,18 @@ export default function BookingForm() {
   const makeBookingNumber = () => {
     const randomBytes = new Uint8Array(4);
     globalThis.crypto.getRandomValues(randomBytes);
-    const suffix = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+    const suffix = Array.from(randomBytes, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    )
+      .join("")
+      .toUpperCase();
     return `EVB-${suffix}`;
   };
   useEffect(() => {
-    const timer = window.setTimeout(() => setBookingNumber(makeBookingNumber()), 0);
+    const timer = window.setTimeout(
+      () => setBookingNumber(makeBookingNumber()),
+      0,
+    );
     return () => window.clearTimeout(timer);
   }, []);
   const validateField = (path, value) => {
@@ -295,10 +313,12 @@ export default function BookingForm() {
     validateField,
   });
   const update = (section, field, value) => {
-    const isPaymentMethodChange = section === "payment" && field === "paymentMethod";
-    const nextValue = section === "payment" && field === "transactionId"
-      ? sanitizePaymentReference(form.payment.paymentMethod, value)
-      : value;
+    const isPaymentMethodChange =
+      section === "payment" && field === "paymentMethod";
+    const nextValue =
+      section === "payment" && field === "transactionId"
+        ? sanitizePaymentReference(form.payment.paymentMethod, value)
+        : value;
     const cleanedTransactionId = isPaymentMethodChange
       ? sanitizePaymentReference(value, form.payment.transactionId)
       : null;
@@ -307,11 +327,17 @@ export default function BookingForm() {
       [section]: {
         ...current[section],
         [field]: nextValue,
-        ...(isPaymentMethodChange ? { transactionId: cleanedTransactionId } : {}),
+        ...(isPaymentMethodChange
+          ? { transactionId: cleanedTransactionId }
+          : {}),
       },
     }));
     if (isPaymentMethodChange) {
-      const transactionError = getFieldError("payment.transactionId", cleanedTransactionId, value);
+      const transactionError = getFieldError(
+        "payment.transactionId",
+        cleanedTransactionId,
+        value,
+      );
       setFieldErrors((current) => {
         const next = { ...current };
         if (transactionError) next["payment.transactionId"] = transactionError;
@@ -338,7 +364,14 @@ export default function BookingForm() {
       validationPaths
         .map((path) => {
           const [section, field] = path.split(".");
-          return [path, getFieldError(path, form[section][field], form.payment.paymentMethod)];
+          return [
+            path,
+            getFieldError(
+              path,
+              form[section][field],
+              form.payment.paymentMethod,
+            ),
+          ];
         })
         .filter(([, error]) => error),
     );
@@ -346,8 +379,15 @@ export default function BookingForm() {
     if (!termsAccepted)
       setTermsError("Please confirm the booking declaration.");
     if (Object.keys(errors).length || !termsAccepted) return;
+    if (!referralCode.trim()) {
+      setReferralError("Please enter the referral code to continue.");
+      return;
+    }
+    setReferralError("");
     if (!bookingNumber) {
-      setMessage("A booking form number is being generated. Please try again in a moment.");
+      setMessage(
+        "A booking form number is being generated. Please try again in a moment.",
+      );
       return;
     }
     setSubmitting(true);
@@ -355,6 +395,7 @@ export default function BookingForm() {
     try {
       const payload = {
         bookingNo: bookingNumber,
+        referralCode: referralCode.trim().toUpperCase(),
         customer: form.customer,
         nominee: {},
         property: {
@@ -380,6 +421,13 @@ export default function BookingForm() {
         body: JSON.stringify(payload),
       });
       const booking = await response.json();
+      if (response.status === 403) {
+        setReferralError(
+          "Referral code is wrong. Check the code and try again.",
+        );
+        setMessage("");
+        return;
+      }
       if (response.status === 409) setBookingNumber(makeBookingNumber());
       if (!response.ok)
         throw new Error(booking.error || "Unable to save booking details.");
@@ -404,6 +452,8 @@ export default function BookingForm() {
       );
       setForm(emptyForm);
       setBookingNumber(makeBookingNumber());
+      setReferralCode("");
+      setReferralError("");
       setFieldErrors({});
       setTermsAccepted(false);
       setTermsError("");
@@ -732,16 +782,25 @@ export default function BookingForm() {
                   <input
                     className={inputClass}
                     required
-                    maxLength={paymentReferenceRules[form.payment.paymentMethod].maxLength}
-                    inputMode={["Cheque", "UPI"].includes(form.payment.paymentMethod) ? "numeric" : "text"}
+                    maxLength={
+                      paymentReferenceRules[form.payment.paymentMethod]
+                        .maxLength
+                    }
+                    inputMode={
+                      ["Cheque", "UPI"].includes(form.payment.paymentMethod)
+                        ? "numeric"
+                        : "text"
+                    }
                     autoCapitalize="characters"
-                    placeholder={{
-                      Cash: "Cash receipt/reference number",
-                      Cheque: "6 digit cheque number",
-                      "NEFT/RTGS": "Bank UTR (12–22 characters)",
-                      UPI: "UPI transaction ID / UTR",
-                      Other: "Transaction/reference number",
-                    }[form.payment.paymentMethod]}
+                    placeholder={
+                      {
+                        Cash: "Cash receipt/reference number",
+                        Cheque: "6 digit cheque number",
+                        "NEFT/RTGS": "Bank UTR (12–22 characters)",
+                        UPI: "UPI transaction ID / UTR",
+                        Other: "Transaction/reference number",
+                      }[form.payment.paymentMethod]
+                    }
                     value={form.payment.transactionId}
                     onChange={(e) =>
                       update("payment", "transactionId", e.target.value)
@@ -884,6 +943,43 @@ export default function BookingForm() {
                 {termsError}
               </p>
             )}
+          </Section>
+          <Section number="6" title="Referral Code">
+            <div className="referral-entry">
+              <label htmlFor="referral-code">Enter referral code *</label>
+              <input
+                id="referral-code"
+                className={`${inputClass} referral-code-input`}
+                type="text"
+                autoComplete="off"
+                autoCapitalize="characters"
+                maxLength={24}
+                required
+                value={referralCode}
+                aria-invalid={Boolean(referralError)}
+                aria-describedby={
+                  referralError ? "referral-code-error" : "referral-code-help"
+                }
+                onChange={(event) => {
+                  setReferralCode(event.target.value.toUpperCase());
+                  setReferralError("");
+                  setMessage("");
+                }}
+              />
+              <small id="referral-code-help" className="referral-code-help">
+                Enter the referral code provided to you.
+              </small>
+              {referralError && (
+                <p
+                  id="referral-code-error"
+                  className="referral-error"
+                  role="alert"
+                >
+                  <span aria-hidden="true">!</span>
+                  {referralError}
+                </p>
+              )}
+            </div>
           </Section>
           <footer className="form-footer">
             <span>

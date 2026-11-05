@@ -13,7 +13,8 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Eco Vista Township | Plot Booking Form",
-  description: "Complete the Eco Vista Township plot or simplex booking form and download your payment acknowledgment receipt.",
+  description:
+    "Complete the Eco Vista Township plot or simplex booking form and download your payment acknowledgment receipt.",
 };
 
 export default function RootLayout({ children }) {
