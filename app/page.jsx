@@ -275,8 +275,11 @@ export default function BookingForm() {
   const [referralError, setReferralError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [submissionSucceeded, setSubmissionSucceeded] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [receiptData, setReceiptData] = useState(null);
+  const [receiptDownloading, setReceiptDownloading] = useState(false);
+  const [receiptDownloadError, setReceiptDownloadError] = useState("");
   const [bookingNumber, setBookingNumber] = useState("");
   const receiptRef = useRef(null);
   const makeBookingNumber = () => {
@@ -358,8 +361,46 @@ export default function BookingForm() {
     ? `${toWords(Math.floor(Number(form.payment.bookingAmountPaid))).toUpperCase()} RUPEES ONLY`
     : "";
 
+  const downloadReceipt = async (data) => {
+    if (!receiptRef.current) {
+      setReceiptDownloadError("Your receipt is still preparing. Please try again in a moment.");
+      return;
+    }
+    setReceiptDownloading(true);
+    setReceiptDownloadError("");
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename: `${data.receiptNo}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+          },
+          jsPDF: {
+            unit: "px",
+            format: [1120, 760],
+            orientation: "landscape",
+          },
+        })
+        .from(receiptRef.current)
+        .save();
+    } catch (error) {
+      console.error("Receipt download failed", error);
+      setReceiptDownloadError(
+        "The receipt could not be downloaded. Please try the button again or contact the office.",
+      );
+    } finally {
+      setReceiptDownloading(false);
+    }
+  };
+
   const submit = async (event) => {
     event.preventDefault();
+    setSubmissionSucceeded(false);
     const errors = Object.fromEntries(
       validationPaths
         .map((path) => {
@@ -422,6 +463,7 @@ export default function BookingForm() {
       });
       const booking = await response.json();
       if (response.status === 403) {
+        setSubmissionSucceeded(false);
         setReferralError(
           "Referral code is wrong. Check the code and try again.",
         );
@@ -445,6 +487,8 @@ export default function BookingForm() {
         createdAt: booking.createdAt || new Date().toISOString(),
       };
       setReceiptData(downloadData);
+      setReceiptDownloadError("");
+      setSubmissionSucceeded(true);
       setShowConfetti(true);
       window.setTimeout(() => setShowConfetti(false), 2200);
       setMessage(
@@ -457,36 +501,9 @@ export default function BookingForm() {
       setFieldErrors({});
       setTermsAccepted(false);
       setTermsError("");
-      window.setTimeout(async () => {
-        if (!receiptRef.current) return;
-        try {
-          const html2pdf = (await import("html2pdf.js")).default;
-          await html2pdf()
-            .set({
-              margin: 0,
-              filename: `${downloadData.receiptNo}.pdf`,
-              image: { type: "jpeg", quality: 0.98 },
-              html2canvas: {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: "#ffffff",
-              },
-              jsPDF: {
-                unit: "px",
-                format: [1120, 760],
-                orientation: "landscape",
-              },
-            })
-            .from(receiptRef.current)
-            .save();
-        } catch (error) {
-          console.error("Receipt download failed", error);
-          setMessage(
-            "Booking saved, but the receipt could not be downloaded. Please use the browser print option or contact the office.",
-          );
-        }
-      }, 250);
+      window.setTimeout(() => downloadReceipt(downloadData), 250);
     } catch (error) {
+      setSubmissionSucceeded(false);
       setMessage(error.message);
     } finally {
       setSubmitting(false);
@@ -988,10 +1005,22 @@ export default function BookingForm() {
               Dhanbad, Jharkhand – 828130
             </span>
           </footer>
-          {message && (
-            <p className="form-message" role="status">
-              {message}
-            </p>
+          {message && !submissionSucceeded && (
+            <div
+              className={`form-message${submissionSucceeded ? " form-message-success" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {submissionSucceeded && (
+                <span className="form-message-success-icon" aria-hidden="true">
+                  ✓
+                </span>
+              )}
+              <span>
+                {submissionSucceeded && <strong>Booking submitted successfully!</strong>}
+                {message}
+              </span>
+            </div>
           )}
           <button className="submit-booking" disabled={submitting}>
             {submitting ? "SUBMITTING…" : "SUBMIT BOOKING & DOWNLOAD RECEIPT"}
@@ -1029,6 +1058,47 @@ export default function BookingForm() {
           )}
         </form>
       </article>
+      {submissionSucceeded && (
+        <div className="success-modal-backdrop">
+          <section
+            className="success-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-success-title"
+          >
+            <div className="success-modal-icon" aria-hidden="true">✓</div>
+            <p className="success-modal-eyebrow">Eco Vista Township</p>
+            <h2 id="booking-success-title">Form successfully submitted!</h2>
+            <p className="success-modal-copy">
+              Your booking has been received. Your receipt should download automatically.
+              If it did not, use the button below to download it.
+            </p>
+            {receiptDownloadError && (
+              <p className="success-modal-error" role="alert">
+                {receiptDownloadError}
+              </p>
+            )}
+            <button
+              className="success-modal-download"
+              type="button"
+              onClick={() => downloadReceipt(receiptData)}
+              disabled={receiptDownloading || !receiptData}
+            >
+              {receiptDownloading ? "PREPARING RECEIPT…" : "DOWNLOAD RECEIPT"}
+            </button>
+            <button
+              className="success-modal-close"
+              type="button"
+              onClick={() => {
+                setSubmissionSucceeded(false);
+                setMessage("");
+              }}
+            >
+              Close
+            </button>
+          </section>
+        </div>
+      )}
       <div className="receipt-download-stage" aria-hidden="true">
         {receiptData && (
           <MoneyReceiptTemplate ref={receiptRef} data={receiptData} />
